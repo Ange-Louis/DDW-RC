@@ -43,7 +43,7 @@ def fit_model(
     num_epochs: Annotated[int, typer.Option(help="Number of epochs to fit the model.")],
     batch_size: Annotated[int, typer.Option(help="Batch size for the optimizer.")],
     subtomo_size: Annotated[
-        int, typer.Option(help="Size of the cubic subtomograms used for model fitting.")
+        int, typer.Option(help="Length & width of the rectangular cuboide used for model fitting.")
     ],
     mw_angle: Annotated[
         float, typer.Option(help="Width of the missing wedge in degrees.")
@@ -55,6 +55,12 @@ def fit_model(
             help="Number of CPU workers to use for data loading. If fitting is slow, try increasing this number."
         ),
     ],
+    subtomo_depth: Annotated[
+        int,
+        typer.Option(
+            help="Depth of the 3D subtomograms to extract for model fitting. This value must be divisible by 2^{num_downsample_layers}, where {num_downsample_layers} is the number of downsampling layers used in the U-Net."
+        ),
+    ] = None,
     subtomo_dir: Annotated[
         Optional[str],
         typer.Option(
@@ -162,17 +168,17 @@ def fit_model(
         print(
             "Running model fitting without validation, as no validation data was found!"
         )
-
-    if not subtomo_size % (2 ** unet_params_dict["num_downsample_layers"]) == 0:
+    if not subtomo_size % (2 ** unet_params_dict["num_downsample_layers"]) == 0 and not subtomo_depth % (2 ** unet_params_dict["num_downsample_layers"]) == 0:
         raise ValueError(
-            f"subtomo_size must be divisible by 2^unet_params_dict['num_downsample_layers'] to ensure compatibility with the U-Net architecture. "
-            f"Got subtomo_size={subtomo_size} and num_downsample_layers={unet_params_dict['num_downsample_layers']}."
+            f"subtomo_size & subtomo_depth must be divisible by 2^unet_params_dict['num_downsample_layers'] to ensure compatibility with the U-Net architecture. "
+            f"Got subtomo_size={subtomo_size} & subtomo_depth={subtomo_depth} and num_downsample_layers={unet_params_dict['num_downsample_layers']}."
         )
 
     # setup datasets
     fitting_dataset = SubtomoDataset(
         subtomo_dir=f"{subtomo_dir}/fitting_subtomos",
         crop_subtomos_to_size=subtomo_size,
+        crop_subtomos_to_depth=subtomo_depth,
         mw_angle=mw_angle,
         rotate_subtomos=True,
         deterministic_rotations=False,
@@ -181,6 +187,7 @@ def fit_model(
         val_dataset = SubtomoDataset(
             subtomo_dir=f"{subtomo_dir}/val_subtomos",
             crop_subtomos_to_size=subtomo_size,
+            crop_subtomos_to_depth=subtomo_depth,
             mw_angle=mw_angle,
             rotate_subtomos=True,
             deterministic_rotations=True,

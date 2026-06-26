@@ -48,16 +48,22 @@ def refine_tomogram(
     subtomo_size: Annotated[
         int,
         typer.Option(
-            help="Size of the cubic subtomograms to extract. This should be the same as the subtomo_size used during model fitting."
+            help="Length & width of the rectangular cuboide to extract. This should be the same as the subtomo_size used during model fitting."
         ),
     ],
     mw_angle: Annotated[
         int, typer.Option(help="Width of the missing wedge in degrees.")
     ],
+    subtomo_depth: Annotated[
+        int,
+        typer.Option(
+            help="Depth of the 3D subtomograms to extract for model fitting. This value must be divisible by 2^{num_downsample_layers}, where {num_downsample_layers} is the number of downsampling layers used in the U-Net."
+        ),
+    ] = None,
     subtomo_overlap: Annotated[
         Optional[int],
         typer.Option(
-            help="Overlap between subtomograms. This determines the stride of the sliding window used to extract subtomograms. If 'None', this is set to '1/3 * subtomo_size'."
+            help="Length & width overlap between subtomograms. This determines the stride of the sliding window used to extract subtomograms. If 'None', this is set to '1/3 * subtomo_size'."
         ),
     ] = None,
     standardize_full_tomos: Annotated[
@@ -122,7 +128,7 @@ def refine_tomogram(
             output_dir = f"{project_dir}/refined_tomograms"
         elif project_dir is None and return_tomos is False:
             raise ValueError(
-                "If return_tomos is False, output_dir or project_dir must be provided, otherwise the refined tomograms will be lost."
+                "If return_tomosubtomo_overlap_depths is False, output_dir or project_dir must be provided, otherwise the refined tomograms will be lost."
             )
     if output_dir is not None:
         if not os.path.exists(output_dir):
@@ -137,6 +143,7 @@ def refine_tomogram(
 
     if subtomo_overlap is None:
         subtomo_overlap = int(math.ceil(subtomo_size / 3))
+    subtomo_overlap_depth = int(subtomo_depth / (subtomo_size/subtomo_overlap))
 
     if hasattr(gpu, "__len__"):
         if len(gpu) > 1:
@@ -153,7 +160,8 @@ def refine_tomogram(
                 loc, scale = get_avg_model_input_mean_and_std(
                     tomo_file=t0_file,
                     subtomo_size=subtomo_size,
-                    subtomo_extraction_strides=3 * [subtomo_size - subtomo_overlap],
+                    subtomo_depth=subtomo_depth,
+                    subtomo_extraction_strides=[subtomo_depth - subtomo_overlap_depth] + 2 * [subtomo_size - subtomo_overlap],
                     mw_angle=mw_angle,
                     batch_size=batch_size,
                     standardize=standardize_full_tomos,
@@ -170,7 +178,9 @@ def refine_tomogram(
                 tomo_file=t0_file,
                 lightning_model=lightning_model,
                 subtomo_size=subtomo_size,
+                subtomo_depth= subtomo_depth,
                 subtomo_overlap=subtomo_overlap,
+                subtomo_overlap_depth= subtomo_overlap_depth,
                 mw_angle=mw_angle,
                 normalization_loc=loc,
                 normalization_scale=scale,
@@ -182,7 +192,9 @@ def refine_tomogram(
                 tomo_file=t1_file,
                 lightning_model=lightning_model,
                 subtomo_size=subtomo_size,
+                subtomo_depth=subtomo_depth,
                 subtomo_overlap=subtomo_overlap,
+                subtomo_overlap_depth=subtomo_overlap_depth,
                 mw_angle=mw_angle,
                 normalization_loc=loc,
                 normalization_scale=scale,
@@ -208,7 +220,9 @@ def _refine_single_tomogram(
     tomo_file,
     lightning_model,
     subtomo_size,
+    subtomo_depth,
     subtomo_overlap,
+    subtomo_overlap_depth,
     mw_angle,
     normalization_loc,
     normalization_scale,
@@ -228,7 +242,8 @@ def _refine_single_tomogram(
     subtomos, subtomo_start_coords = extract_subtomos(
         tomo=tomo.cpu(),
         subtomo_size=subtomo_size,
-        subtomo_extraction_strides=3 * [subtomo_size - subtomo_overlap],
+        subtomo_depth=subtomo_depth,
+        subtomo_extraction_strides=[subtomo_depth - subtomo_overlap_depth] + 2 * [subtomo_size - subtomo_overlap],
         enlarge_subtomos_for_rotating=False,
         pad_before_subtomo_extraction=True,
     )

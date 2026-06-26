@@ -47,7 +47,7 @@ def prepare_data(
         typer.Option(
             help="Depth of the 3D subtomograms to extract for model fitting. This value must be divisible by 2^{num_downsample_layers}, where {num_downsample_layers} is the number of downsampling layers used in the U-Net."
         ),
-    ],
+    ] = None,
     val_fraction: Annotated[
         float,
         typer.Option(
@@ -144,6 +144,8 @@ def prepare_data(
     # actual subtomogram extraction
     if verbose:
         print(f"Starting subtomogram extraction from {len(tomo0_files)} tomogram(s).")
+    if subtomo_depth is None:
+        subtomo_depth= subtomo_size
     fitting_counter, val_counter = 0, 0
     for k, (tomo0_file, tomo1_file, mask_file) in enumerate(
         zip(tomo0_files, tomo1_files, mask_files)
@@ -166,6 +168,7 @@ def prepare_data(
         subtomos0, start_coords = extract_subtomos(
             tomo=tomo0,
             subtomo_size=subtomo_size,
+            subtomo_depth=subtomo_depth,
             subtomo_extraction_strides=subtomo_extraction_strides,
             enlarge_subtomos_for_rotating=extract_larger_subtomos_for_rotating,
             pad_before_subtomo_extraction=pad_before_subtomo_extraction,
@@ -177,6 +180,7 @@ def prepare_data(
         subtomos1, _ = extract_subtomos(
             tomo=tomo1,
             subtomo_size=subtomo_size,
+            subtomo_depth=subtomo_depth,
             subtomo_extraction_strides=subtomo_extraction_strides,
             enlarge_subtomos_for_rotating=extract_larger_subtomos_for_rotating,
             pad_before_subtomo_extraction=pad_before_subtomo_extraction,
@@ -190,6 +194,7 @@ def prepare_data(
         subtomos_mask, _ = extract_subtomos(
             tomo=mask,
             subtomo_size=subtomo_size,
+            subtomo_depth=subtomo_depth,
             subtomo_extraction_strides=subtomo_extraction_strides,
             enlarge_subtomos_for_rotating=extract_larger_subtomos_for_rotating,
             pad_before_subtomo_extraction=pad_before_subtomo_extraction,
