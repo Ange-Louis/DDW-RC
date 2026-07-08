@@ -1,2 +1,7 @@
-tutorial/
-pycache/
+tutorial_data/
+__pycache__/
+.*
+build/
+strides_64/
+__MACOSX/
+ddw_rc.egg-info/
