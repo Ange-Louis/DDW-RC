@@ -34,6 +34,6 @@ fit_model:
 
 
 refine_tomogram:
-    model_checkpoint_file: "./strides_64/logs/version_0/checkpoints/val_loss/epoch=919-val_loss=0.26102.ckpt"
+    model_checkpoint_file: "./strides_64/logs/version_1/checkpoints/val_loss/epoch=979-val_loss=0.52816.ckpt"
     subtomo_overlap: 32
     batch_size: 10

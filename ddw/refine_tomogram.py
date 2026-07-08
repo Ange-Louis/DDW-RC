@@ -66,6 +66,12 @@ def refine_tomogram(
             help="Length & width overlap between subtomograms. This determines the stride of the sliding window used to extract subtomograms. If 'None', this is set to '1/3 * subtomo_size'."
         ),
     ] = None,
+    subtomo_overlap_depth: Annotated[
+        Optional[int],
+        typer.Option(
+            help="Depth overlap between subtomograms. This determines the stride of the sliding window used to extract subtomograms. If 'None', this is set to ratio 'Length / Length overlap'."
+        ),
+    ] = None,
     standardize_full_tomos: Annotated[
         bool,
         typer.Option(
@@ -143,7 +149,8 @@ def refine_tomogram(
 
     if subtomo_overlap is None:
         subtomo_overlap = int(math.ceil(subtomo_size / 3))
-    subtomo_overlap_depth = int(subtomo_depth / (subtomo_size/subtomo_overlap))
+    if subtomo_overlap_depth is None:
+        subtomo_overlap_depth = int(subtomo_depth / (subtomo_size/subtomo_overlap))
 
     if hasattr(gpu, "__len__"):
         if len(gpu) > 1:
