@@ -150,7 +150,8 @@ def refine_tomogram(
     if subtomo_overlap is None:
         subtomo_overlap = int(math.ceil(subtomo_size / 3))
     if subtomo_overlap_depth is None:
-        subtomo_overlap_depth = int(subtomo_depth / (subtomo_size/subtomo_overlap))
+        # Maintain the same overlap ratio in depth as in x/y dimensions
+        subtomo_overlap_depth = int(subtomo_depth * subtomo_overlap / subtomo_size)
 
     if hasattr(gpu, "__len__"):
         if len(gpu) > 1:
@@ -239,12 +240,15 @@ def _refine_single_tomogram(
 ):
 
     tomo = load_mrc_data(tomo_file).float()#.to(lightning_model.device)
-    # apply missing wedge mask here to be more consistent with data during model fitting
+    
+    # Normalize first (same as in prepare_data.py) - BEFORE applying missing wedge mask
+    # This ensures consistency with how subtomograms were normalized during model fitting
+    if normalization_scale != 1.0 or normalization_loc != 0.0:
+        tomo = (tomo - tomo.mean()) / (tomo.std() + 1e-6) * normalization_scale + normalization_loc
+    
+    # apply missing wedge mask after normalization to be consistent with data during model fitting
     mw_mask = get_missing_wedge_mask(tomo.shape, mw_angle, device=tomo.device)
     tomo = apply_fourier_mask_to_tomo(tomo, mw_mask)
-
-    tomo = (tomo / tomo.std()) * torch.tensor(normalization_scale).to(tomo.device)
-    tomo = tomo - tomo.mean() + torch.tensor(normalization_loc).to(tomo.device)
 
     subtomos, subtomo_start_coords = extract_subtomos(
         tomo=tomo.cpu(),

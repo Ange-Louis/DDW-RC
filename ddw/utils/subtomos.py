@@ -126,12 +126,8 @@ def get_linear_ramp_weights(subtomo_shape, subtomo_overlap_depth, subtomo_overla
         weight_map_xy[:subtomo_overlap_size] = ramp_xy
         weight_map_xy[-subtomo_overlap_size:] = ramp_xy[::-1]
 
-    # Création de la carte 3D
-    weight_map_3d = np.ones((depth, size_y, size_x))
-    for i in range(depth):
-        for j in range(size_y):
-            for k in range(size_x):
-                weight_map_3d[i, j, k] = weight_map_z[i] * weight_map_xy[j] * weight_map_xy[k]
+    # Création de la carte 3D de manière vectorisée (plus rapide)
+    weight_map_3d = weight_map_z.reshape(depth, 1, 1) * weight_map_xy.reshape(1, size_y, 1) * weight_map_xy.reshape(1, 1, size_x)
 
     return torch.from_numpy(weight_map_3d)
 
