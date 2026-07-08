@@ -268,6 +268,7 @@ def _refine_single_tomogram(
         subtomos=model_outputs,
         subtomo_start_coords=subtomo_start_coords,
         subtomo_overlap=subtomo_overlap,
+        subtomo_overlap_depth=subtomo_overlap_depth,
         crop_to_size=tomo.shape,
     )
     return tomo_ref

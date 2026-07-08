@@ -62,7 +62,7 @@ def extract_subtomos(
 
 
 def reassemble_subtomos(
-    subtomos, subtomo_start_coords, subtomo_overlap=None, crop_to_size=None
+    subtomos, subtomo_start_coords, subtomo_overlap=None, subtomo_overlap_depth=None, crop_to_size=None
 ):
     """
     Basically the inverse of 'extract_subtomos'. For this to work, 'extract_subtomos' must have been called with 'pad_before_subtomo_extraction=True', and 'crop_to_size' must be set to the 3D shape of the tomogram from which the sub-tomograms were extracted.
@@ -73,11 +73,11 @@ def reassemble_subtomos(
         max(start_idx[i] + subtomo_depth for start_idx in subtomo_start_coords)
         for i in range(3)
     ]
-    if subtomo_overlap is None:
+    if subtomo_overlap is None and subtomo_overlap_depth is None:
         subtomo_weights = torch.ones_like(subtomos[0])
     else:
         subtomo_weights = get_linear_ramp_weights(
-            subtomos[0].shape[0], subtomo_overlap
+            subtomos[0].shape, subtomo_overlap_depth, subtomo_overlap
         ).to(subtomos[0].device)
 
     out_vol = torch.zeros(max_idx, dtype=torch.float32, device=subtomos[0].device)
@@ -105,23 +105,33 @@ def reassemble_subtomos(
     return out_vol
 
 
-def get_linear_ramp_weights(subtomo_size, subtomo_overlap):
+def get_linear_ramp_weights(subtomo_shape, subtomo_overlap_depth, subtomo_overlap_size):
     """
-    Produces a cubic 3D tensor containing linear weights used to average overlapping sub-tomogram parts in 'reassemble_subtomos'.
+    Produces a 3D tensor containing linear weights used to average overlapping 
+    sub-tomogram parts, adapted for non-cubic volumes.
     """
-    ramp = np.linspace(0, 1, subtomo_overlap) + 1e-6
-    weight_map_1d = np.ones(subtomo_size)
-    weight_map_1d[:subtomo_overlap] = ramp  # Apply sigmoid ramp at the start
-    weight_map_1d[-subtomo_overlap:] = ramp[::-1]  # and at the end, inverted
+    depth, size_y, size_x = subtomo_shape
 
-    # Create a 3D weight map by extending the 1D weight map to 3 dimensions
-    weight_map_3d = np.ones((subtomo_size, subtomo_size, subtomo_size))
-    for i in range(subtomo_size):
-        for j in range(subtomo_size):
-            for k in range(subtomo_size):
-                weight_map_3d[i, j, k] = (
-                    weight_map_1d[i] * weight_map_1d[j] * weight_map_1d[k]
-                )
+    # Rampe pour l'axe Z (profondeur)
+    weight_map_z = np.ones(depth)
+    if subtomo_overlap_depth > 0:
+        ramp_z = np.linspace(0, 1, subtomo_overlap_depth) + 1e-6
+        weight_map_z[:subtomo_overlap_depth] = ramp_z
+        weight_map_z[-subtomo_overlap_depth:] = ramp_z[::-1]
+
+    # Rampe pour les axes X et Y (taille)
+    weight_map_xy = np.ones(size_y)
+    if subtomo_overlap_size > 0:
+        ramp_xy = np.linspace(0, 1, subtomo_overlap_size) + 1e-6
+        weight_map_xy[:subtomo_overlap_size] = ramp_xy
+        weight_map_xy[-subtomo_overlap_size:] = ramp_xy[::-1]
+
+    # Création de la carte 3D
+    weight_map_3d = np.ones((depth, size_y, size_x))
+    for i in range(depth):
+        for j in range(size_y):
+            for k in range(size_x):
+                weight_map_3d[i, j, k] = weight_map_z[i] * weight_map_xy[j] * weight_map_xy[k]
 
     return torch.from_numpy(weight_map_3d)
 
